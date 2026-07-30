@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0f0f23">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="加密货币实时行情 - BTC, ETH, SOL 等主流币种价格追踪">
+  <link rel="manifest" href="manifest.json">
+  <title>加密行情 · Crypto Live</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #0f0f23;
+      --card: #1a1a3e;
+      --card-hover: #222255;
+      --text: #e0e0f0;
+      --text-dim: #7a7a9e;
+      --green: #00e676;
+      --red: #ff5252;
+      --accent: #7c4dff;
+      --accent-dim: #5a3dbf;
+    }
+    body {
+      font-family: -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 16px;
+      padding-bottom: 80px;
+    }
+    .container { max-width: 640px; margin: 0 auto; }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding: 12px 0;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #7c4dff, #00e5ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .last-update {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .last-update span { color: var(--accent); }
+
+    /* Search */
+    .search-bar {
+      margin-bottom: 16px;
+      position: relative;
+    }
+    .search-bar input {
+      width: 100%;
+      padding: 12px 16px;
+      padding-left: 40px;
+      border-radius: 12px;
+      border: 1px solid #2a2a55;
+      background: var(--card);
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    .search-bar input:focus {
+      border-color: var(--accent);
+    }
+    .search-bar input::placeholder { color: var(--text-dim); }
+    .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+      font-size: 16px;
+    }
+
+    /* Coin Grid */
+    .coin-grid { display: flex; flex-direction: column; gap: 10px; }
+    .coin-card {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.15s;
+      border: 1px solid transparent;
+    }
+    .coin-card:hover, .coin-card:active {
+      background: var(--card-hover);
+      transform: translateY(-1px);
+    }
+    .coin-card.hidden { display: none; }
+    .coin-left { display: flex; align-items: center; gap: 12px; }
+    .coin-icon {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: #2a2a55;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      flex-shrink: 0;
+    }
+    .coin-icon img {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+    }
+    .coin-info { }
+    .coin-symbol {
+      font-size: 15px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .coin-name {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 1px;
+    }
+    .coin-right { text-align: right; }
+    .coin-price {
+      font-size: 16px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .coin-change {
+      font-size: 12px;
+      font-weight: 500;
+      margin-top: 2px;
+    }
+    .coin-change.up { color: var(--green); }
+    .coin-change.down { color: var(--red); }
+    .coin-vol {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 1px;
+    }
+
+    /* Detail Panel */
+    .detail-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 100;
+      animation: fadeIn 0.2s;
+    }
+    .detail-overlay.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    .detail-panel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #16163a;
+      border-radius: 20px 20px 0 0;
+      padding: 20px;
+      z-index: 101;
+      animation: slideUp 0.25s;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .detail-handle {
+      width: 36px; height: 4px;
+      background: #3a3a66;
+      border-radius: 4px;
+      margin: 0 auto 16px;
+    }
+    .detail-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .detail-header .coin-icon { width: 44px; height: 44px; font-size: 18px; }
+    .detail-header .coin-symbol { font-size: 20px; }
+    .detail-header .coin-name { font-size: 14px; }
+    .detail-price {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { color: var(--text-dim); font-size: 13px; }
+    .detail-value { font-size: 14px; font-weight: 500; }
+    .close-btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 12px;
+      background: var(--accent);
+      color: white;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 16px;
+      transition: background 0.2s;
+    }
+    .close-btn:hover { background: var(--accent-dim); }
+
+    /* Loading */
+    .loading {
+      text-align: center;
+      padding: 60px 0;
+      color: var(--text-dim);
+    }
+    .loading .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid var(--card);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Error */
+    .error {
+      text-align: center;
+      padding: 40px 0;
+      color: var(--red);
+    }
+
+    /* Footer / refresh hint */
+    .footer-note {
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 11px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📊 加密行情</h1>
+      <div class="last-update">更新 · <span id="updateTime">--</span></div>
+    </header>
+
+    <div class="search-bar">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="searchInput" placeholder="搜索币种…" autocomplete="off">
+    </div>
+
+    <div id="loading" class="loading">
+      <div class="spinner"></div>
+      <div>加载行情数据…</div>
+    </div>
+    <div id="error" class="error" style="display:none;">
+      ⚠️ 数据加载失败<br>
+      <small>请下拉刷新重试</small>
+    </div>
+    <div id="coinGrid" class="coin-grid"></div>
+    <div class="footer-note">数据来源 · CoinGecko · 每 60 秒自动更新</div>
+  </div>
+
+  <!-- Detail Panel -->
+  <div class="detail-overlay" id="detailOverlay"></div>
+  <div class="detail-panel" id="detailPanel" style="display:none;">
+    <div class="detail-handle"></div>
+    <div id="detailContent"></div>
+  </div>
+
+  <script>
+    // ─── 币种配置 ───
+    const COINS = [
+      { id: 'bitcoin',        symbol: 'BTC',  name: 'Bitcoin',        icon: '₿' },
+      { id: 'ethereum',       symbol: 'ETH',  name: 'Ethereum',       icon: 'Ξ' },
+      { id: 'solana',         symbol: 'SOL',  name: 'Solana',         icon: 'S' },
+      { id: 'ripple',         symbol: 'XRP',  name: 'XRP',            icon: 'X' },
+      { id: 'dogecoin',       symbol: 'DOGE', name: 'Dogecoin',       icon: 'Ð' },
+      { id: 'cardano',        symbol: 'ADA',  name: 'Cardano',        icon: 'A' },
+      { id: 'polkadot',       symbol: 'DOT',  name: 'Polkadot',       icon: 'D' },
+      { id: 'avalanche-2',    symbol: 'AVAX', name: 'Avalanche',      icon: 'A' },
+      { id: 'chainlink',      symbol: 'LINK', name: 'Chainlink',      icon: 'L' },
+      { id: 'polymesh',       symbol: 'POLYX',name: 'Polymesh',       icon: 'P' },
+      { id: 'near',           symbol: 'NEAR', name: 'NEAR Protocol',  icon: 'N' },
+      { id: 'tron',           symbol: 'TRX',  name: 'TRON',           icon: 'T' },
+      { id: 'litecoin',       symbol: 'LTC',  name: 'Litecoin',       icon: 'Ł' },
+      { id: 'bitcoin-cash',   symbol: 'BCH',  name: 'Bitcoin Cash',   icon: 'B' },
+      { id: 'stellar',        symbol: 'XLM',  name: 'Stellar',        icon: 'S' },
+      { id: 'cosmos',         symbol: 'ATOM', name: 'Cosmos',         icon: 'A' },
+      { id: 'vechain',        symbol: 'VET',  name: 'VeChain',        icon: 'V' },
+      { id: 'filecoin',       symbol: 'FIL',  name: 'Filecoin',       icon: 'F' },
+      { id: 'aptos',          symbol: 'APT',  name: 'Aptos',          icon: 'A' },
+      { id: 'sui',            symbol: 'SUI',  name: 'Sui',            icon: 'S' },
+    ];
+
+    let priceCache = {};
+    let autoTimer = null;
+
+    // ─── 工具函数 ───
+    function fmtPrice(v) {
+      if (v >= 1) return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      if (v >= 0.01) return '$' + v.toFixed(4);
+      return '$' + v.toFixed(6);
+    }
+    function fmtVol(v) {
+      if (v >= 1e9) return '$' + (v / 1e9).toFixed(1) + 'B';
+      if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
+      if (v >= 1e3) return '$' + (v / 1e3).toFixed(1) + 'K';
+      return '$' + v.toFixed(0);
+    }
+    function fmtCap(v) {
+      if (v >= 1e12) return '$' + (v / 1e12).toFixed(2) + 'T';
+      if (v >= 1e9) return '$' + (v / 1e9).toFixed(2) + 'B';
+      if (v >= 1e6) return '$' + (v / 1e6).toFixed(2) + 'M';
+      return '$' + v.toFixed(0);
+    }
+    function updateTime() {
+      document.getElementById('updateTime').textContent = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+    }
+
+    // ─── 获取数据 ───
+    async function fetchPrices() {
+      const ids = COINS.map(c => c.id).join(',');
+      const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_market_cap=true`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.json();
+    }
+
+    // ─── 渲染 ───
+    function render() {
+      const grid = document.getElementById('coinGrid');
+      const search = document.getElementById('searchInput').value.trim().toLowerCase();
+      grid.innerHTML = '';
+      COINS.forEach(coin => {
+        const data = priceCache[coin.id];
+        if (!data) return;
+        const change = data.usd_24h_change;
+        const changeCls = change >= 0 ? 'up' : 'down';
+        const changeStr = (change >= 0 ? '+' : '') + change.toFixed(2) + '%';
+        const matches = search === '' || coin.symbol.toLowerCase().includes(search) || coin.name.toLowerCase().includes(search) || coin.id.includes(search);
+        const card = document.createElement('div');
+        card.className = 'coin-card' + (matches ? '' : ' hidden');
+        card.innerHTML = `
+          <div class="coin-left">
+            <div class="coin-icon">${coin.icon}</div>
+            <div class="coin-info">
+              <div class="coin-symbol">${coin.symbol}</div>
+              <div class="coin-name">${coin.name}</div>
+            </div>
+          </div>
+          <div class="coin-right">
+            <div class="coin-price">${fmtPrice(data.usd)}</div>
+            <div class="coin-change ${changeCls}">${changeStr}</div>
+            <div class="coin-vol">量 ${fmtVol(data.usd_24h_vol)}</div>
+          </div>
+        `;
+        card.addEventListener('click', () => showDetail(coin, data));
+        grid.appendChild(card);
+      });
+    }
+
+    // ─── 详情面板 ───
+    function showDetail(coin, data) {
+      const overlay = document.getElementById('detailOverlay');
+      const panel = document.getElementById('detailPanel');
+      const content = document.getElementById('detailContent');
+      const change = data.usd_24h_change;
+      const changeCls = change >= 0 ? 'up' : 'down';
+      const changeStr = (change >= 0 ? '+' : '') + change.toFixed(2) + '%';
+      content.innerHTML = `
+        <div class="detail-header">
+          <div class="coin-icon">${coin.icon}</div>
+          <div>
+            <div class="coin-symbol">${coin.symbol}</div>
+            <div class="coin-name">${coin.name}</div>
+          </div>
+        </div>
+        <div class="detail-price">${fmtPrice(data.usd)}</div>
+        <div class="coin-change ${changeCls}" style="font-size:16px;margin-bottom:16px;">${changeStr}</div>
+        <div class="detail-row">
+          <span class="detail-label">24h 成交量</span>
+          <span class="detail-value">${fmtVol(data.usd_24h_vol)}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">市值</span>
+          <span class="detail-value">${fmtCap(data.usd_market_cap)}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">最新价格</span>
+          <span class="detail-value">$${data.usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 })}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">24h 涨跌</span>
+          <span class="detail-value ${changeCls}">${changeStr}</span>
+        </div>
+        <button class="close-btn" onclick="closeDetail()">关闭</button>
+      `;
+      overlay.classList.add('active');
+      panel.style.display = 'block';
+    }
+    function closeDetail() {
+      document.getElementById('detailOverlay').classList.remove('active');
+      document.getElementById('detailPanel').style.display = 'none';
+    }
+    document.getElementById('detailOverlay').addEventListener('click', closeDetail);
+
+    // ─── 加载 ───
+    async function load() {
+      try {
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('error').style.display = 'none';
+        priceCache = await fetchPrices();
+        updateTime();
+        render();
+        document.getElementById('loading').style.display = 'none';
+      } catch (e) {
+        console.error(e);
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+      }
+    }
+
+    // ─── 自动刷新 ───
+    function startAutoRefresh() {
+      if (autoTimer) clearInterval(autoTimer);
+      autoTimer = setInterval(async () => {
+        try { priceCache = await fetchPrices(); updateTime(); render(); } catch(e) { /* silent retry */ }
+      }, 60000);
+    }
+
+    // ─── 搜索 ───
+    document.getElementById('searchInput').addEventListener('input', render);
+
+    // ─── 启动 ───
+    load().then(startAutoRefresh);
+  </script>
+</body>
+</html>
